@@ -135,8 +135,7 @@ def search(type, hex, string, executable, writable, value, mapping_name, save, n
 
     # Find the mappings that we're looking for
     mappings = pwndbg.vmmap.get()
-
-    if mapping_name:
+    if mapping_name is not None:
         mappings = [m for m in mappings if mapping_name in m.objfile]
 
     if not mappings:

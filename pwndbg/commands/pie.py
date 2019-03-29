@@ -13,6 +13,7 @@ import gdb
 import pwndbg.auxv
 import pwndbg.commands
 import pwndbg.vmmap
+from pwndbg.commands.windbg import dX, ds
 
 
 def get_exe_name():
@@ -54,7 +55,8 @@ def translate_addr(offset, module):
               'memory pages:' % (offset, module, addr))
         for p in pages:
             print(p)
-        return
+        # eatman fix: however, we still get the address
+        # return
 
     return addr
 
@@ -76,7 +78,7 @@ def piebase(offset=None, module=None):
     addr = translate_addr(offset, module)
 
     if addr is not None:
-        print('Calculated VA from %s = 0x%x' % (module, addr))
+        print('Calculated VA from %s = %#x' % (module, addr))
 
 
 parser = argparse.ArgumentParser()
@@ -104,3 +106,107 @@ def breakrva(offset=None, module=None):
 def brva(map):
     """Alias for breakrva."""
     return breakrva(map)
+
+
+"""
+eatman fix
+"""
+
+parser = argparse.ArgumentParser()
+parser.description = 'Get the RVA of the given VA.'
+parser.add_argument('va', nargs='?', default=0,
+                    help='VA.')
+parser.add_argument('module', type=str, nargs='?', default='',
+                    help='Module to choose as base. Defaults to the target executable.')
+
+@pwndbg.commands.ArgparsedCommand(parser)
+@pwndbg.commands.OnlyWhenRunning
+def rva(va, module=None):
+    pages = list(filter(lambda page: va in page, pwndbg.vmmap.get()))
+
+    if not pages:
+        print('Address 0x%x is not in current pages' % (va))
+        return
+
+    first_page = min(pages, key=lambda page: page.vaddr)
+    rva = va - first_page.vaddr
+    print("Calculated RVA to %s = %#x" % (first_page.objfile, rva))
+    
+
+@pwndbg.commands.ParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def dbva(offset, count=64, module=None):
+    """
+    Starting at the specified address, dump N bytes
+    (default 64).
+    """
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return dX(1, (addr), (count))
+
+@pwndbg.commands.ParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def dwva(offset, count=32, module=None):
+    """
+    Starting at the specified address, dump N words
+    (default 32).
+    """
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return dX(2, (addr), (count))
+
+@pwndbg.commands.ParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def ddva(offset, count=16, module=None):
+    """
+    Starting at the specified address, dump N dwords
+    (default 16).
+    """
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return dX(4, (addr), (count))
+
+@pwndbg.commands.ParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def dqva(offset, count=8, module=None):
+    """
+    Starting at the specified address, dump N qwords
+    (default 8).
+    """
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return dX(8, (addr), (count))
+
+@pwndbg.commands.ParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def dcva(offset, count=8, module=None):
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return pwndbg.commands.hexdump.hexdump(address=addr, count=count)
+
+ds_parser = argparse.ArgumentParser()
+ds_parser.description = 'Dump a string at the specified address.'
+ds_parser.add_argument('offset', help='Address to dump')
+ds_parser.add_argument('max', type=int, nargs='?', default=256,
+                       help='Maximum string length')
+
+@pwndbg.commands.ArgparsedCommand(ds_parser)
+@pwndbg.commands.OnlyWhenRunning
+def dsva(offset, max, module=None):
+    offset = int(offset)
+    offset &= pwndbg.arch.ptrmask
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return ds(addr, max)

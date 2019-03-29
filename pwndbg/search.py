@@ -53,6 +53,7 @@ def search(searchfor, mappings=None, start=None, end=None,
     for vmmap in maps:
         start = vmmap.start
         end   = vmmap.end
+        print("Searching from %#x to %#x..." % (start, end))
 
         while True:
             # No point in searching if we can't read the memory

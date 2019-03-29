@@ -36,15 +36,37 @@ def update_length():
     else:
         length = int(message)
 
-def get(address, maxlen = None):
+# def get(address, maxlen = None):
+#     if maxlen is None:
+#         maxlen = length
+
+#     try:
+#         sz = pwndbg.memory.string(address, maxlen)
+#         sz = sz.decode('latin-1', 'replace')
+#         if not sz or not all(s in string.printable for s in sz):
+#             return None
+#     except Exception as e:
+#         return None
+
+#     if len(sz) < maxlen or not maxlen:
+#         return sz
+
+#     return sz[:maxlen] + '...'
+
+"""
+eatman fix
+"""
+
+def get(address, maxlen = None, whatever=False):
     if maxlen is None:
         maxlen = length
 
     try:
         sz = pwndbg.memory.string(address, maxlen)
         sz = sz.decode('latin-1', 'replace')
-
-        if not sz or not all(s in string.printable for s in sz):
+        if not sz:
+            return None
+        if not all(s in string.printable for s in sz) and not whatever:
             return None
     except Exception as e:
         return None

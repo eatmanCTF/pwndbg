@@ -22,6 +22,7 @@ import pwndbg.memory
 import pwndbg.strings
 import pwndbg.symbol
 import pwndbg.typeinfo
+import pwndbg.color.memory as M
 
 
 def get_type(size):
@@ -99,7 +100,9 @@ def dX(size, address, count, to_string=False):
     for i, row in enumerate(rows):
         if not row:
             continue
-        line = [enhex(pwndbg.arch.ptrsize, address + (i*16)),'   ']
+        # eatman fix: add '0x'
+        line = ['0x' + enhex(pwndbg.arch.ptrsize, address + (i*16)),'   ']
+        # line = [enhex(pwndbg.arch.ptrsize, address + (i*16)),'   ']
         for value in row:
             line.append(enhex(size, value))
         lines.append(' '.join(line))
@@ -159,6 +162,14 @@ def ez(address, *data):
 @pwndbg.commands.Command
 @pwndbg.commands.OnlyWhenRunning
 def eza(address, *data):
+    """
+    Write a string at the specified address.
+    """
+    return ez(address, data)
+
+@pwndbg.commands.Command
+@pwndbg.commands.OnlyWhenRunning
+def es(address, *data):
     """
     Write a string at the specified address.
     """
@@ -246,7 +257,7 @@ ds_parser.add_argument('max', type=int, nargs='?', default=256,
 def ds(address, max):
     address = int(address)
     address &= pwndbg.arch.ptrmask
-    print("%x" % address, repr(pwndbg.strings.get(address, max)))
+    print(M.get(address), repr(pwndbg.strings.get(address, max, whatever=True)))
 
 @pwndbg.commands.ParsedCommand
 def bl():
