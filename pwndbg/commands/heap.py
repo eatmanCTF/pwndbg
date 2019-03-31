@@ -99,8 +99,15 @@ def h(addr=None, details=False):
 
     # Print out all chunks on the heap
     # TODO: Add an option to print out only free or allocated chunks
+
+    # Check if there is an alignment at the start of the heap
+    size_t = pwndbg.arch.ptrsize
+    first_chunk_size = pwndbg.arch.unpack(pwndbg.memory.read(addr + size_t, size_t))
+    if first_chunk_size == 0:
+        addr += size_t * 2  # Skip the alignment
+
     while addr < page.vaddr + page.memsz:
-        chunk = malloc_chunk(addr, details=details)
+        chunk = malloc_chunk(addr, details=details) # Prints the chunk
         size = int(chunk['size'])
 
         # Clear the bottom 3 bits
