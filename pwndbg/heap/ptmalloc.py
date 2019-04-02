@@ -570,4 +570,9 @@ class Heap(pwndbg.heap.heap.BaseHeap):
         global_max_fast is one of them thus the call of set_max_fast() when initializing the main_arena, 
         making it one of the ways to check if the allocator is initialized or not.
         """
-        return self.global_max_fast != 0
+        #return self.global_max_fast != 0
+        """
+        eatman fix:
+        glibc 2.13 with arm: global_max_fast is always 0
+        """
+        return self.get_region() is not None
