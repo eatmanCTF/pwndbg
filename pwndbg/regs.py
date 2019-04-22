@@ -278,7 +278,6 @@ class module(ModuleType):
             else:
                 value = get_register(attr)
                 value = value.cast(pwndbg.typeinfo.ptrdiff)
-
             value = int(value)
             return value & pwndbg.arch.ptrmask
         except (ValueError, gdb.error):

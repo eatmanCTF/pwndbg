@@ -103,9 +103,9 @@ def breakrva(offset=None, module=None):
 
 @pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
-def brva(map):
+def brva(offset=None, module=None):
     """Alias for breakrva."""
-    return breakrva(map)
+    return breakrva(offset, module)
 
 
 """

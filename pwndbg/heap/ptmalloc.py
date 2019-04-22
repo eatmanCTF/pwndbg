@@ -508,6 +508,7 @@ class Heap(pwndbg.heap.heap.BaseHeap):
 
         # check if corrupted
         elif chain_fd[:-1] != chain_bk[:-2][::-1] + [chain_bk[-2]]:
+            print(chain_fd[:-1], chain_bk[:-2][::-1] + [chain_bk[-2]])
             is_chain_corrupted = True
 
         return (chain_fd, chain_bk, is_chain_corrupted)
