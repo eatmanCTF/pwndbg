@@ -133,7 +133,7 @@ def rva(va, module=None):
     print("Calculated RVA to %s = %#x" % (first_page.objfile, rva))
     
 
-@pwndbg.commands.ParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dbva(offset, count=64, module=None):
     """
@@ -146,7 +146,7 @@ def dbva(offset, count=64, module=None):
     addr = translate_addr(offset, module)
     return dX(1, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dwva(offset, count=32, module=None):
     """
@@ -159,7 +159,7 @@ def dwva(offset, count=32, module=None):
     addr = translate_addr(offset, module)
     return dX(2, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def ddva(offset, count=16, module=None):
     """
@@ -172,7 +172,7 @@ def ddva(offset, count=16, module=None):
     addr = translate_addr(offset, module)
     return dX(4, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dqva(offset, count=8, module=None):
     """
@@ -185,7 +185,7 @@ def dqva(offset, count=8, module=None):
     addr = translate_addr(offset, module)
     return dX(8, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dcva(offset, count=8, module=None):
     offset = int(offset)
