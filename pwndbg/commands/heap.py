@@ -144,13 +144,11 @@ def heap(mode='all', *args):
     """
     Prints out chunks starting from the address specified by `addr`.
     """
-    if not mode in ('all', 'detail', 'fastbin', 'tcache', 'bins'):
-        print(message.error('Usage: heap [all/detail/fastbin/tcached/bins]'))
-        return
+    
     if mode == 'all':
         h()
         return 
-    elif mode == 'detail':
+    elif 'detail'.find(mode) == 0:
         heapdetail(*args)
         return
     elif mode == 'fastbin':
@@ -167,6 +165,14 @@ def heap(mode='all', *args):
         if pwndbg.heap.current.has_tcache():
             tcachebins()
         return
+    else:
+        try:
+            start = int(mode)
+            end = int(args[0])
+            h(start=start, end=end)
+        except Exception:
+            print(message.error('Usage: heap [all/detail/fastbin/tcached/bins]'))
+            return
 
 @pwndbg.commands.ParsedCommand
 @pwndbg.commands.OnlyWhenRunning
