@@ -10,6 +10,7 @@ import struct
 
 import gdb
 import six
+import math
 
 import pwndbg.color.context as C
 import pwndbg.color.memory as M
@@ -80,7 +81,12 @@ def format_bin(bins, verbose=False, offset=None):
 
     return result
 
-def h(addr=None, details=False):
+def heapdetail(*args):
+    start = int(args[0]) if len(args) >= 1 else None
+    end = int(args[1]) if len(args) >= 2 else None
+    h(start=start, end=end, detail=True)
+
+def h(addr=None, pwndbgmode=False, start=None, end=None, detail=False):
     """
     Prints out chunks starting from the address specified by `addr`.
     """
@@ -88,10 +94,6 @@ def h(addr=None, details=False):
     main_arena = main_heap.main_arena
     if main_arena is None:
         return
-
-    # if mode not in ['normal', 'all']:
-    #     print(message.error('Supported mode: normal or all'))
-    # details = False if mode == 'normal' else True
 
     page = main_heap.get_heap_boundaries(addr)
     if addr is None:
@@ -106,8 +108,17 @@ def h(addr=None, details=False):
     if first_chunk_size == 0:
         addr += size_t * 2  # Skip the alignment
 
+    idx = 0
     while addr < page.vaddr + page.memsz:
-        chunk = malloc_chunk(addr, details=details) # Prints the chunk
+        output = False
+        while True:
+            if start is not None and idx < start:
+                break
+            if end is not None and idx > end:
+                break
+            output = True
+            break
+        chunk = malloc_chunk(addr, idx=idx, pwndbgmode=pwndbgmode, output=output, detail=detail) # Prints the chunk
         size = int(chunk['size'])
 
         # Clear the bottom 3 bits
@@ -115,6 +126,7 @@ def h(addr=None, details=False):
         if size == 0:
             break
         addr += size
+        idx += 1
 
 @pwndbg.commands.ParsedCommand
 @pwndbg.commands.OnlyWhenRunning
@@ -123,21 +135,24 @@ def heap_pwndbg(addr=None):
     """
     Prints out chunks starting from the address specified by `addr`.
     """
-    h(addr=addr)
+    h(addr=addr, pwndbgmode=True)
 
 @pwndbg.commands.Command
 @pwndbg.commands.OnlyWhenRunning
 @pwndbg.commands.OnlyWhenHeapIsInitialized
-def heap(mode='all'):
+def heap(mode='all', *args):
     """
     Prints out chunks starting from the address specified by `addr`.
     """
-    if not mode in ('all', 'fastbin', 'tcache', 'bins'):
-        print(message.error('Usage: heap [all/fastbin/tcached/bins]'))
+    if not mode in ('all', 'detail', 'fastbin', 'tcache', 'bins'):
+        print(message.error('Usage: heap [all/detail/fastbin/tcached/bins]'))
         return
     if mode == 'all':
-        h(details=True)
+        h()
         return 
+    elif mode == 'detail':
+        heapdetail(*args)
+        return
     elif mode == 'fastbin':
         fastbins()
         return
@@ -251,10 +266,60 @@ def top_chunk(addr=None):
 
     return malloc_chunk(address)
 
+def print_chunk_detail(addr, size):
+    def get_type(size):
+        return {
+        4: pwndbg.typeinfo.uint32,
+        8: pwndbg.typeinfo.uint64,
+        }[size]
+    def enhex(size, value, fill=True):
+        value = value & pwndbg.arch.ptrmask
+        x = "%x" % abs(value)
+        if fill:
+            x = x.rjust(size * 2, '0')
+        return x
+    values = []
+    address = addr & pwndbg.arch.ptrmask
+    type   = get_type(pwndbg.arch.ptrsize)
+    count = int((size & ~7) / pwndbg.arch.ptrsize)
+
+    for i in range(count):
+        try:
+            gval = pwndbg.memory.poi(type, address + i * pwndbg.arch.ptrsize)
+            values.append(int(gval))
+        except gdb.MemoryError:
+            break
+
+    n_rows = int(math.ceil(count * pwndbg.arch.ptrsize / float(16)))
+    row_sz = int(16 / pwndbg.arch.ptrsize)
+    rows   = [values[i*row_sz:(i+1)*row_sz] for i in range(n_rows)]
+    lines  = []
+
+    repeat_row = None
+    appended = False    
+    for i, row in enumerate(rows):
+        if not row:
+            continue
+        if row == repeat_row and size > 0x100 and i != len(rows) - 1:
+            if not appended:
+                lines.append('.' * 6)
+                appended = True
+            continue
+        if i == 0:
+            line = [M.get(address), '   ']
+        else:
+            line = ['0x' + enhex(pwndbg.arch.ptrsize, address + (i*16), fill=False),'   ']
+        for value in row:
+            line.append(enhex(pwndbg.arch.ptrsize, value))
+        lines.append(' '.join(line))
+        repeat_row = row
+        appended = False    
+    print('\n'.join(lines))
+
 @pwndbg.commands.ParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 @pwndbg.commands.OnlyWhenHeapIsInitialized
-def malloc_chunk(addr,fake=False,details=False):
+def malloc_chunk(addr,idx=None,fake=False,pwndbgmode=False,output=True,detail=False):
     """
     Prints out the malloc_chunk at the specified address.
     """
@@ -272,63 +337,71 @@ def malloc_chunk(addr,fake=False,details=False):
         arena = main_heap.get_heap(addr)['ar_ptr']
 
     fastbins = [] if fake else main_heap.fastbins(arena)
-    if not details:
-        header = M.get(addr)
-        if fake:
-            header += message.prompt(' FAKE')
-        if prev_inuse:
-            if actual_size in fastbins:
-                header += message.hint(' FASTBIN')
+    if output:
+        if pwndbgmode:
+            header = M.get(addr)
+            if fake:
+                header += message.prompt(' FAKE')
+            if prev_inuse:
+                if actual_size in fastbins:
+                    header += message.hint(' FASTBIN')
+                else:
+                    header += message.hint(' PREV_INUSE')
+            if is_mmapped:
+                header += message.hint(' IS_MMAPED')
+            if non_main_arena:
+                header += message.hint(' NON_MAIN_ARENA')
+            print(header, chunk["value"])
+        elif not detail:
+            """
+            print format by eatman
+            """
+            tail = ""
+            if fake:
+                tail += message.prompt(' FAKE')
+            if prev_inuse:
+                if actual_size in fastbins:
+                    tail += message.hint(' FASTBIN')
+                # else:
+                tail += message.hint(' PREV_INUSE')
+            if is_mmapped:
+                tail += message.hint(' IS_MMAPED')
+            if non_main_arena:
+                tail += message.hint(' NON_MAIN_ARENA')
+            def ascii_char(ch):
+                if ord(ch) >= 0x20 and ord(ch) < 0x7e:
+                    return chr(ord(ch))  # Ensure we return a str
+                else:
+                    return "."
+            show = ""
+            if idx is not None:
+                show += "[{}] ".format(idx)
+            show += M.get(addr)
+            show += " SIZE=" + hex(actual_size)
+            headersize = pwndbg.arch.ptrsize * 2
+            data = addr + headersize
+            show += " DATA[" + hex(data)+"]"
+            if size >= 0x20:
+                bytes = pwndbg.memory.read(data, 0x20, partial=True)
             else:
-                header += message.hint(' PREV_INUSE')
-        if is_mmapped:
-            header += message.hint(' IS_MMAPED')
-        if non_main_arena:
-            header += message.hint(' NON_MAIN_ARENA')
-        print(header, chunk["value"])
-    else:
-        """
-        print format by eatman
-        """
-        tail = ""
-        if fake:
-            tail += message.prompt(' FAKE')
-        if prev_inuse:
-            if actual_size in fastbins:
-                tail += message.hint(' FASTBIN')
-            # else:
-            tail += message.hint(' PREV_INUSE')
-        if is_mmapped:
-            tail += message.hint(' IS_MMAPED')
-        if non_main_arena:
-            tail += message.hint(' NON_MAIN_ARENA')
-        def ascii_char(ch):
-            if ord(ch) >= 0x20 and ord(ch) < 0x7e:
-                return chr(ord(ch))  # Ensure we return a str
-            else:
-                return "."
-        show = M.get(addr)
-        show += " SIZE=" + hex(actual_size)
-        headersize = pwndbg.arch.ptrsize * 2
-        data = addr + headersize
-        show += " DATA[" + hex(data)+"]"
-        if size >= 0x20:
-            bytes = pwndbg.memory.read(data, 0x20, partial=True)
-        else:
-            bytes = pwndbg.memory.read(data, size, partial=True)
+                bytes = pwndbg.memory.read(data, size, partial=True)
 
-        asciibytes = "".join([ascii_char(c) for c in bytes_iterator(bytes)])
-        show += " |" + asciibytes + "|"
-        print(show + tail)
-        # if self.is_address(addr+size-0x10)==False:
-        #     print(red("overlap at 0x%x -- size=0x%x"%(addr,size)))
-        #     return None
-        # if self.chunk_inuse(addr):
-        #     show += green(' INUSED')
-        # if prev_inuse:
-        #     show += green(' PREV_INUSE')
-        #     if "INUSED" not in show:
-        #         show += green(' INUSED')    
+            asciibytes = "".join([ascii_char(c) for c in bytes_iterator(bytes)])
+            show += " |" + asciibytes + "|"
+            print(show + tail)
+        else:
+            print_chunk_detail(addr, size)
+
+            
+            # if self.is_address(addr+size-0x10)==False:
+            #     print(red("overlap at 0x%x -- size=0x%x"%(addr,size)))
+            #     return None
+            # if self.chunk_inuse(addr):
+            #     show += green(' INUSED')
+            # if prev_inuse:
+            #     show += green(' PREV_INUSE')
+            #     if "INUSED" not in show:
+            #         show += green(' INUSED')    
     return chunk
 
 @pwndbg.commands.ParsedCommand
