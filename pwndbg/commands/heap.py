@@ -83,7 +83,7 @@ def format_bin(bins, verbose=False, offset=None):
 
 def heapdetail(*args):
     start = int(args[0]) if len(args) >= 1 else None
-    end = int(args[1]) if len(args) >= 2 else None
+    end = int(args[1]) if len(args) >= 2 else start if start else None
     h(start=start, end=end, detail=True)
 
 def h(addr=None, pwndbgmode=False, start=None, end=None, detail=False):
@@ -151,17 +151,17 @@ def heap(mode='all', *args):
     elif 'detail'.find(mode) == 0:
         heapdetail(*args)
         return
-    elif mode == 'fastbin':
+    elif 'fastbin'.find(mode) == 0:
         fastbins()
         return
-    elif mode == 'bins':
+    elif 'bins'.find(mode) == 0:
         if pwndbg.heap.current.has_tcache():
             tcachebins()
         fastbins()
         unsortedbin()
         smallbins()
         largebins()
-    elif mode == 'tcache':
+    elif 'tcache'.find(mode) == 0:
         if pwndbg.heap.current.has_tcache():
             tcachebins()
         return
@@ -381,7 +381,7 @@ def malloc_chunk(addr,idx=None,fake=False,pwndbgmode=False,output=True,detail=Fa
                     return "."
             show = ""
             if idx is not None:
-                show += "[{}] ".format(idx)
+                show += "[{:03d}] ".format(idx)
             show += M.get(addr)
             show += " SIZE=" + hex(actual_size)
             headersize = pwndbg.arch.ptrsize * 2
