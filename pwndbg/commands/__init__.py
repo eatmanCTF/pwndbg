@@ -149,6 +149,7 @@ class ParsedCommand(Command):
     quiet  = False
 
     def split_args(self, argument):
+        # import sys
         # sys.stdout.write(repr(argument) + '\n')
         argv, _ = super(ParsedCommand, self).split_args(argument)
         # sys.stdout.write(repr(argv) + '\n')

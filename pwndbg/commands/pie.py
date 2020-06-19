@@ -38,7 +38,9 @@ def get_exe_name():
 
 
 def translate_addr(offset, module):
-    mod_filter = lambda page: module in page.objfile
+    def mod_filter(page):
+        return module in page.objfile
+    # mod_filter = lambda page: module in page.objfile
     pages = list(filter(mod_filter, pwndbg.vmmap.get()))
 
     if not pages:
@@ -80,13 +82,6 @@ def piebase(offset=None, module=None):
     if addr is not None:
         print('Calculated VA from %s = %#x' % (module, addr))
 
-
-parser = argparse.ArgumentParser()
-parser.description = 'Break at RVA from PIE base.'
-parser.add_argument('offset', nargs='?', default=0,
-                    help='Offset to add.')
-parser.add_argument('module', type=str, nargs='?', default='',
-                    help='Module to choose as base. Defaults to the target executable.')
 
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
@@ -131,11 +126,19 @@ def rva(va, module=None):
     first_page = min(pages, key=lambda page: page.vaddr)
     rva = va - first_page.vaddr
     print("Calculated RVA to %s = %#x" % (first_page.objfile, rva))
-    
 
-@pwndbg.commands.ParsedCommand
+parser = argparse.ArgumentParser()
+parser.description = 'Dump data at the specified address.'
+parser.add_argument('offset', nargs='?', default=0,
+                    help='VA.')
+parser.add_argument('count', nargs='?', default=64,
+                    help='VA.')
+parser.add_argument('module', type=str, nargs='?', default='',
+                    help='Module to choose as base. Defaults to the target executable.')
+
+@pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
-def dbva(offset, count=64, module=None):
+def dbva(offset, count=64, module=''):
     """
     Starting at the specified address, dump N bytes
     (default 64).
@@ -146,7 +149,15 @@ def dbva(offset, count=64, module=None):
     addr = translate_addr(offset, module)
     return dX(1, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+parser = argparse.ArgumentParser()
+parser.description = 'Dump data at the specified address.'
+parser.add_argument('offset', nargs='?', default=0,
+                    help='VA.')
+parser.add_argument('count', nargs='?', default=32,
+                    help='VA.')
+parser.add_argument('module', type=str, nargs='?', default='',
+                    help='Module to choose as base. Defaults to the target executable.')
+@pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def dwva(offset, count=32, module=None):
     """
@@ -159,7 +170,15 @@ def dwva(offset, count=32, module=None):
     addr = translate_addr(offset, module)
     return dX(2, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+parser = argparse.ArgumentParser()
+parser.description = 'Dump data at the specified address.'
+parser.add_argument('offset', nargs='?', default=0,
+                    help='VA.')
+parser.add_argument('count', nargs='?', default=16,
+                    help='VA.')
+parser.add_argument('module', type=str, nargs='?', default='',
+                    help='Module to choose as base. Defaults to the target executable.')
+@pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def ddva(offset, count=16, module=None):
     """
@@ -172,9 +191,18 @@ def ddva(offset, count=16, module=None):
     addr = translate_addr(offset, module)
     return dX(4, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
+
+parser = argparse.ArgumentParser()
+parser.description = 'Dump data at the specified address.'
+parser.add_argument('offset', nargs='?', default=0,
+                    help='VA.')
+parser.add_argument('count', nargs='?', default=8,
+                    help='VA.')
+parser.add_argument('module', type=str, nargs='?', default='',
+                    help='Module to choose as base. Defaults to the target executable.')
+@pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
-def dqva(offset, count=8, module=None):
+def dqva(offset, count=8, module=''):
     """
     Starting at the specified address, dump N qwords
     (default 8).
@@ -185,22 +213,14 @@ def dqva(offset, count=8, module=None):
     addr = translate_addr(offset, module)
     return dX(8, (addr), (count))
 
-@pwndbg.commands.ParsedCommand
-@pwndbg.commands.OnlyWhenRunning
-def dcva(offset, count=8, module=None):
-    offset = int(offset)
-    if not module:
-        module = get_exe_name()
-    addr = translate_addr(offset, module)
-    return pwndbg.commands.hexdump.hexdump(address=addr, count=count)
 
-ds_parser = argparse.ArgumentParser()
-ds_parser.description = 'Dump a string at the specified address.'
-ds_parser.add_argument('offset', help='Address to dump')
-ds_parser.add_argument('max', type=int, nargs='?', default=256,
+parser = argparse.ArgumentParser()
+parser.description = 'Dump a string at the specified address.'
+parser.add_argument('offset', help='Address to dump')
+parser.add_argument('max', type=int, nargs='?', default=256,
                        help='Maximum string length')
 
-@pwndbg.commands.ArgparsedCommand(ds_parser)
+@pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def dsva(offset, max, module=None):
     offset = int(offset)
