@@ -137,6 +137,7 @@ parser.add_argument('module', type=str, nargs='?', default='',
                     help='Module to choose as base. Defaults to the target executable.')
 
 @pwndbg.commands.ArgparsedCommand(parser)
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dbva(offset, count=64, module=''):
     """
@@ -158,6 +159,7 @@ parser.add_argument('count', nargs='?', default=32,
 parser.add_argument('module', type=str, nargs='?', default='',
                     help='Module to choose as base. Defaults to the target executable.')
 @pwndbg.commands.ArgparsedCommand(parser)
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dwva(offset, count=32, module=None):
     """
@@ -179,6 +181,7 @@ parser.add_argument('count', nargs='?', default=16,
 parser.add_argument('module', type=str, nargs='?', default='',
                     help='Module to choose as base. Defaults to the target executable.')
 @pwndbg.commands.ArgparsedCommand(parser)
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def ddva(offset, count=16, module=None):
     """
@@ -201,6 +204,7 @@ parser.add_argument('count', nargs='?', default=8,
 parser.add_argument('module', type=str, nargs='?', default='',
                     help='Module to choose as base. Defaults to the target executable.')
 @pwndbg.commands.ArgparsedCommand(parser)
+@pwndbg.commands.QuietSloppyParsedCommand
 @pwndbg.commands.OnlyWhenRunning
 def dqva(offset, count=8, module=''):
     """
@@ -213,6 +217,14 @@ def dqva(offset, count=8, module=''):
     addr = translate_addr(offset, module)
     return dX(8, (addr), (count))
 
+@pwndbg.commands.QuietSloppyParsedCommand
+@pwndbg.commands.OnlyWhenRunning
+def dcva(offset, count=8, module=None):
+    offset = int(offset)
+    if not module:
+        module = get_exe_name()
+    addr = translate_addr(offset, module)
+    return pwndbg.commands.hexdump.hexdump(address=addr, count=count)
 
 parser = argparse.ArgumentParser()
 parser.description = 'Dump a string at the specified address.'
