@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import collections
 
@@ -27,7 +23,7 @@ for value1, name1 in dict(access).items():
         access.setdefault(value1 | value2, '%s | %s' % (name1, name2))
 
 
-class DisassemblyAssistant(object):
+class DisassemblyAssistant:
     # Registry of all instances, {architecture: instance}
     assistants = {}
 
@@ -199,8 +195,6 @@ class DisassemblyAssistant(object):
         operand.symbol:
             Resolved symbol name for this operand.
         """
-        current = (instruction.address == pwndbg.regs.pc)
-
         for i, op in enumerate(instruction.operands):
             op.int    = None
             op.symbol = None

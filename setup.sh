@@ -4,7 +4,7 @@ set -ex
 # If we are a root in a Docker container and `sudo` doesn't exist
 # lets overwrite it with a function that just executes things passed to sudo
 # (yeah it won't work for sudo executed with flags)
-if [ -f /.dockerenv ]  && ! hash sudo 2>/dev/null && whoami | grep root; then
+if [ -f /.dockerenv ] && ! hash sudo 2>/dev/null && whoami | grep root; then
     sudo() {
         $*
     }
@@ -20,17 +20,41 @@ osx() {
 
 install_apt() {
     sudo apt-get update || true
-    sudo apt-get -y install gdb python-dev python3-dev python-pip python3-pip libglib2.0-dev libc6-dbg
+    sudo apt-get -y install git gdb python3-dev python3-pip python3-setuptools libglib2.0-dev libc6-dbg
 
     if uname -m | grep x86_64 > /dev/null; then
-        sudo apt-get install libc6-dbg:i386 || true
+        sudo apt-get -y install libc6-dbg:i386 || true
     fi
 }
 
 install_dnf() {
     sudo dnf update || true
-    sudo dnf -y install gdb python-devel python3-devel python-pip python3-pip glib2-devel make
+    sudo dnf -y install gdb gdb-gdbserver python-devel python3-devel python-pip python3-pip glib2-devel make
     sudo dnf -y debuginfo-install glibc
+}
+
+install_xbps() {
+    sudo xbps-install -Su
+    sudo xbps-install -Sy gdb gcc python-devel python3-devel python-pip python3-pip glibc-devel make
+    sudo xbps-install -Sy glibc-dbg
+}
+
+install_swupd() {
+    sudo swupd update || true
+    sudo swupd bundle-add gdb python3-basic make c-basic
+}
+
+install_zypper() {
+    sudo zypper refresh || true
+    sudo zypper install -y gdb gdbserver python-devel python3-devel python2-pip python3-pip glib2-devel make glibc-debuginfo
+
+    if uname -m | grep x86_64 > /dev/null; then
+        sudo zypper install -y glibc-32bit-debuginfo || true
+    fi
+}
+
+install_emerge() {
+    emerge --oneshot --deep --newuse --changed-use --changed-deps dev-lang/python dev-python/pip sys-devel/gdb
 }
 
 PYTHON=''
@@ -43,8 +67,8 @@ else
 fi
 
 if linux; then
-    distro=$(cat /etc/os-release | grep "^ID=" | cut -d\= -f2 | sed -e 's/"//g')
-    
+    distro=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | sed -e 's/"//g')
+
     case $distro in
         "ubuntu")
             install_apt
@@ -52,11 +76,35 @@ if linux; then
         "fedora")
             install_dnf
             ;;
+        "clear-linux-os")
+            install_swupd
+            ;;
+        "opensuse-leap")
+            install_zypper
+            ;;
         "arch")
             echo "Install Arch linux using a community package. See:"
             echo " - https://www.archlinux.org/packages/community/any/pwndbg/"
             echo " - https://aur.archlinux.org/packages/pwndbg-git/"
             exit 1
+            ;;
+        "manjaro")
+            echo "Pwndbg is not avaiable on Manjaro's repositories."
+            echo "But it can be installed using Arch's AUR community package. See:"
+            echo " - https://www.archlinux.org/packages/community/any/pwndbg/"
+            echo " - https://aur.archlinux.org/packages/pwndbg-git/"
+            exit 1
+            ;;
+        "void")
+            install_xbps
+            ;;
+        "gentoo")
+            install_emerge
+            if ! hash sudo 2>/dev/null && whoami | grep root; then
+                sudo() {
+                    $*
+                }
+            fi
             ;;
         *) # we can add more install command for each distros.
             echo "\"$distro\" is not supported distro. Will search for 'apt' or 'dnf' package managers."

@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import functools
 import pdb
@@ -22,7 +18,7 @@ try:
 except ImportError:
     pass
 
-verbose = pwndbg.config.Parameter('exception-verbose', False, 'whether to print a full stacktracefor exceptions raised in Pwndbg commands')
+verbose = pwndbg.config.Parameter('exception-verbose', False, 'whether to print a full stacktrace for exceptions raised in Pwndbg commands')
 debug = pwndbg.config.Parameter('exception-debugger', False, 'whether to debug exceptions raised in Pwndbg commands')
 
 
@@ -66,7 +62,7 @@ def handle(name='Error'):
     else:
         exc_type, exc_value, exc_traceback = sys.exc_info()
 
-        print(message.error('Exception occured: {}: {} ({})'.format(name, exc_value, exc_type)))
+        print(message.error('Exception occurred: {}: {} ({})'.format(name, exc_value, exc_type)))
 
         print(message.notice('For more info invoke `') +
               message.hint('set exception-verbose on') +

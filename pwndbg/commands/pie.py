@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import argparse
 import os
@@ -28,11 +24,21 @@ def get_exe_name():
     """
     path = pwndbg.auxv.get().get('AT_EXECFN')
 
-    if path is not None:
+    # When GDB is launched on a file that is a symlink to the target,
+    # the AUXV's AT_EXECFN stores the absolute path of to the symlink.
+    # On the other hand, the vmmap, if taken from /proc/pid/maps will contain
+    # the absolute and real path of the binary (after symlinks).
+    # And so we have to read this path here.
+    real_path = pwndbg.file.readlink(path)
+
+    if real_path == '':  # the `path` was not a symlink
+        real_path = path
+
+    if real_path is not None:
         # We normalize the path as `AT_EXECFN` might contain e.g. './a.out'
         # so matching it against Page.objfile later on will be wrong;
         # We want just 'a.out'
-        return os.path.normpath(path)
+        return os.path.normpath(real_path)
 
     return pwndbg.proc.exe
 
@@ -96,7 +102,7 @@ def breakrva(offset=None, module=None):
         gdb.Breakpoint(spec)
 
 
-@pwndbg.commands.QuietSloppyParsedCommand
+@pwndbg.commands.QuietSloppyParsedCommand #TODO should this just be an alias or does the QuietSloppy have an effect?
 @pwndbg.commands.OnlyWhenRunning
 def brva(offset=None, module=None):
     """Alias for breakrva."""

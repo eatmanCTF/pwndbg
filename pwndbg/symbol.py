@@ -7,13 +7,9 @@ vice-versa.
 Uses IDA when available if there isn't sufficient symbol
 information available.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import re
+import shutil
 import tempfile
 
 import elftools.common.exceptions
@@ -21,7 +17,6 @@ import elftools.elf.constants
 import elftools.elf.elffile
 import elftools.elf.segments
 import gdb
-import six
 
 import pwndbg.arch
 import pwndbg.elf
@@ -71,7 +66,9 @@ def reset_remote_files():
     global remote_files
     global remote_files_dir
     remote_files = {}
-    remote_files_dir = tempfile.mkdtemp()
+    if remote_files_dir is not None:
+        shutil.rmtree(remote_files_dir)
+        remote_files_dir = None
 
 @pwndbg.events.new_objfile
 def autofetch():
@@ -194,7 +191,7 @@ def get(address, gdb_only=False):
 
 @pwndbg.memoize.reset_on_objfile
 def address(symbol):
-    if isinstance(symbol, six.integer_types):
+    if isinstance(symbol, int):
         return symbol
 
     try:

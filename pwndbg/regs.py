@@ -4,11 +4,6 @@
 Reading register value from the inferior, and provides a
 standardized interface to registers like "sp" and "pc".
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import collections
 import ctypes
 import re
@@ -16,7 +11,6 @@ import sys
 from types import ModuleType
 
 import gdb
-import six
 
 import pwndbg.arch
 import pwndbg.events
@@ -30,7 +24,7 @@ except NameError:
     long=int
 
 
-class RegisterSet(object):
+class RegisterSet:
     #: Program counter register
     pc = None
 
@@ -97,12 +91,25 @@ class RegisterSet(object):
         for r in self.all:
             yield r
 
+arm_cpsr_flags = collections.OrderedDict([
+    ('N', 31), ('Z', 30), ('C', 29), ('V', 28), ('Q', 27), ('J', 24), ('T', 5), ('E', 9), ('A', 8), ('I', 7), ('F', 6)])
+arm_xpsr_flags = collections.OrderedDict([
+    ('N', 31), ('Z', 30), ('C', 29), ('V', 28), ('Q', 27), ('T', 24)])
+
 arm = RegisterSet(  retaddr = ('lr',),
-                    flags   = {'cpsr':{}},
+                    flags   = {'cpsr': arm_cpsr_flags},
                     gpr     = tuple('r%i' % i for i in range(13)),
                     args    = ('r0','r1','r2','r3'),
                     retval  = 'r0')
 
+# ARM Cortex-M
+armcm = RegisterSet(  retaddr = ('lr',),
+                    flags   = {'xpsr': arm_xpsr_flags},
+                    gpr     = tuple('r%i' % i for i in range(13)),
+                    args    = ('r0','r1','r2','r3'),
+                    retval  = 'r0')
+
+# FIXME AArch64 does not have a CPSR register
 aarch64 = RegisterSet(  retaddr = ('lr',),
                         flags   = {'cpsr':{}},
                         frame   = 'x29',
@@ -111,16 +118,16 @@ aarch64 = RegisterSet(  retaddr = ('lr',),
                         args    = ('x0','x1','x2','x3'),
                         retval  = 'x0')
 
-x86flags = {'eflags': {
-    'CF':  0,
-    'PF':  2,
-    'AF':  4,
-    'ZF':  6,
-    'SF':  7,
-    'IF':  9,
-    'DF': 10,
-    'OF': 11,
-}}
+x86flags = {'eflags': collections.OrderedDict([
+    ('CF',  0),
+    ('PF',  2),
+    ('AF',  4),
+    ('ZF',  6),
+    ('SF',  7),
+    ('IF',  9),
+    ('DF', 10),
+    ('OF', 11),
+])}
 
 amd64 = RegisterSet(pc      = 'rip',
                     stack   = 'rsp',
@@ -154,7 +161,6 @@ i386 = RegisterSet( pc      = 'eip',
                                 'dil','sil','spl','bpl',
                                 'di','si','bp','sp','ip'),
                     retval  = 'eax')
-
 
 # http://math-atlas.sourceforge.net/devel/assembly/elfspec_ppc.pdf
 # r0      Volatile register which may be modified during function linkage
@@ -235,10 +241,12 @@ mips = RegisterSet( frame   = 'fp',
 
 arch_to_regs = {
     'i386': i386,
+    'i8086': i386,
     'x86-64': amd64,
     'mips': mips,
     'sparc': sparc,
     'arm': arm,
+    'armcm': armcm,
     'aarch64': aarch64,
     'powerpc': powerpc,
 }
@@ -249,7 +257,7 @@ def gdb77_get_register(name):
 
 @pwndbg.proc.OnlyWhenRunning
 def gdb79_get_register(name):
-    return gdb.newest_frame().read_register(name)
+    return gdb.selected_frame().read_register(name)
 
 try:
     gdb.Frame.read_register
@@ -272,25 +280,34 @@ class module(ModuleType):
         attr = attr.lstrip('$')
         try:
             # Seriously, gdb? Only accepts uint32.
-            if 'eflags' in attr:
+            if 'eflags' in attr or 'cpsr' in attr:
                 value = gdb77_get_register(attr)
                 value = value.cast(pwndbg.typeinfo.uint32)
             else:
+                if attr.lower() == 'xpsr':
+                    attr = 'xPSR'
                 value = get_register(attr)
+<<<<<<< HEAD
                 value = value.cast(pwndbg.typeinfo.ptrdiff)
+=======
+                size = pwndbg.typeinfo.unsigned.get(value.type.sizeof, pwndbg.typeinfo.ulong)
+                value = value.cast(size)
+                if attr.lower() == 'pc' and pwndbg.arch.current == 'i8086':
+                    value += self.cs * 16
+
+>>>>>>> upstream/dev
             value = int(value)
             return value & pwndbg.arch.ptrmask
         except (ValueError, gdb.error):
             return None
 
     @pwndbg.memoize.reset_on_stop
+    @pwndbg.memoize.reset_on_prompt
     def __getitem__(self, item):
-        if isinstance(item, six.integer_types):
-            return arch_to_regs[pwndbg.arch.current][item]
-
-        if not isinstance(item, six.string_types):
+        if not isinstance(item, str):
             print("Unknown register type: %r" % (item))
-            import pdb, traceback
+            import pdb
+            import traceback
             traceback.print_stack()
             pdb.set_trace()
             return None
@@ -299,13 +316,13 @@ class module(ModuleType):
         item = item.lstrip('$')
         item = getattr(self, item.lower())
 
-        if isinstance(item, six.integer_types):
+        if isinstance(item, int):
             return int(item) & pwndbg.arch.ptrmask
 
         return item
 
     def __iter__(self):
-        regs = set(arch_to_regs[pwndbg.arch.current]) | set(['pc','sp'])
+        regs = set(arch_to_regs[pwndbg.arch.current]) | {'pc', 'sp'}
         for item in regs:
             yield item
 
@@ -370,7 +387,7 @@ class module(ModuleType):
     @property
     def changed(self):
         delta = []
-        for reg, value in self.last.items():
+        for reg, value in self.previous.items():
             if self[reg] != value:
                 delta.append(reg)
         return delta
@@ -425,6 +442,7 @@ sys.modules[__name__] = module(__name__, '')
 @pwndbg.events.stop
 def update_last():
     M = sys.modules[__name__]
+    M.previous = M.last
     M.last = {k:M[k] for k in M.common}
     if pwndbg.config.show_retaddr_reg:
         M.last.update({k:M[k] for k in M.retaddr})
